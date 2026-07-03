@@ -1,0 +1,21 @@
+export const aeratorConfig = {
+  aerator: {
+    control: {
+      mode: "manual",
+      manualOn: false,
+      schedule: { start: "18:00", end: "22:00" },
+      alarmArmed: false,
+    },
+    status: {
+      temperature: 0,
+      motorOn: false,
+      rssi: 0,
+      clockSynced: false,
+      lastSeen: 0,
+    },
+    security: {
+      alert: false,
+      lastAlertAt: 0,
+    },
+  },
+} as const;

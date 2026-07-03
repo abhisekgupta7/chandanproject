@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRANVAYU · Pond Aerator Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --water:#07171E; --surface:#0D2530; --surface2:#11303D;
+    --line:#1B4250; --oxy:#4FE3C1; --amber:#F2B457; --red:#FF5D5D;
+    --ink:#E8F4F1; --mut:#7FA3A0;
+    --r:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Space Grotesk",system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 50% -200px, #0C2833 0%, var(--water) 60%);
+    color:var(--ink); min-height:100%;
+    display:flex; justify-content:center;
+  }
+  .app{width:100%;max-width:460px;padding:20px 16px 48px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px 18px}
+  .brand{line-height:1.05}
+  .brand h1{font-size:1.35rem;font-weight:700;letter-spacing:.14em}
+  .brand small{color:var(--mut);font-size:.78rem;letter-spacing:.05em}
+  .pill{
+    font-family:"IBM Plex Mono",monospace;font-size:.72rem;padding:5px 10px;
+    border-radius:999px;border:1px solid var(--line);color:var(--mut);white-space:nowrap;
+  }
+  .pill.on{color:var(--oxy);border-color:rgba(79,227,193,.45)}
+  .pill.off{color:var(--red);border-color:rgba(255,93,93,.45)}
+
+  /* ---------- alert banner ---------- */
+  #alertBanner{
+    display:none;gap:10px;align-items:center;
+    background:rgba(255,93,93,.12);border:1px solid rgba(255,93,93,.5);
+    border-radius:var(--r);padding:12px 14px;margin-bottom:14px;
+  }
+  #alertBanner.show{display:flex}
+  #alertBanner .dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex:none;
+    animation:blink 1s steps(2) infinite}
+  #alertBanner p{font-size:.85rem}
+  #alertBanner time{color:var(--mut);font-family:"IBM Plex Mono",monospace;font-size:.72rem;display:block}
+  @keyframes blink{50%{opacity:.2}}
+
+  /* ---------- hero: aeration ring (signature) ---------- */
+  .hero{display:flex;flex-direction:column;align-items:center;margin:8px 0 22px}
+  .ring{
+    position:relative;width:200px;height:200px;border-radius:50%;
+    border:2px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    overflow:hidden; background:linear-gradient(180deg,#0B222C 0%,#0E2A35 100%);
+    transition:border-color .4s, box-shadow .4s;
+  }
+  .ring.running{border-color:var(--oxy);box-shadow:0 0 34px rgba(79,227,193,.18) inset,0 0 24px rgba(79,227,193,.12)}
+  .ring .state{font-size:1.05rem;font-weight:700;letter-spacing:.18em;z-index:2}
+  .ring .sub{color:var(--mut);font-size:.7rem;letter-spacing:.12em;margin-top:4px;z-index:2}
+  .ring.running .state{color:var(--oxy)}
+  .ring.pending .state{color:var(--amber)}
+  .bubble{position:absolute;bottom:-12px;border-radius:50%;
+    border:1px solid rgba(79,227,193,.55);opacity:0;pointer-events:none}
+  .ring.running .bubble{animation:rise 3.4s linear infinite}
+  .bubble:nth-child(1){left:28%;width:8px;height:8px;animation-delay:0s}
+  .bubble:nth-child(2){left:48%;width:12px;height:12px;animation-delay:1.1s}
+  .bubble:nth-child(3){left:66%;width:6px;height:6px;animation-delay:2s}
+  .bubble:nth-child(4){left:38%;width:5px;height:5px;animation-delay:2.7s}
+  @keyframes rise{0%{transform:translateY(0);opacity:0}12%{opacity:.85}
+    100%{transform:translateY(-210px);opacity:0}}
+  @media (prefers-reduced-motion:reduce){.ring .bubble,#alertBanner .dot{animation:none}}
+
+  .temp{margin-top:14px;text-align:center}
+  .temp b{font-family:"IBM Plex Mono",monospace;font-size:2rem;font-weight:600}
+  .temp span{color:var(--mut);font-size:.78rem;display:block;letter-spacing:.1em}
+  #pendingMsg{color:var(--amber);font-size:.75rem;margin-top:8px;min-height:1em;text-align:center}
+
+  /* ---------- cards ---------- */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:16px;margin-bottom:14px}
+  .card h2{font-size:.72rem;letter-spacing:.2em;color:var(--mut);font-weight:500;margin-bottom:14px}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}
+  .row label{font-size:.95rem}
+  .row .hint{color:var(--mut);font-size:.72rem;display:block;margin-top:2px}
+
+  /* segmented mode control */
+  .seg{display:flex;background:var(--surface2);border:1px solid var(--line);
+    border-radius:12px;padding:3px;gap:3px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--mut);
+    font-family:inherit;font-size:.85rem;font-weight:500;padding:9px 0;border-radius:9px;cursor:pointer}
+  .seg button.active{background:var(--oxy);color:#04231C;font-weight:700}
+  .seg button.active.amber{background:var(--amber);color:#2A1B04}
+
+  /* toggle switch */
+  .switch{position:relative;width:52px;height:30px;flex:none}
+  .switch input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;z-index:2}
+  .switch i{position:absolute;inset:0;border-radius:999px;background:var(--surface2);
+    border:1px solid var(--line);transition:.2s}
+  .switch i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;
+    border-radius:50%;background:var(--mut);transition:.2s}
+  .switch input:checked + i{background:rgba(79,227,193,.25);border-color:var(--oxy)}
+  .switch input:checked + i::after{left:25px;background:var(--oxy)}
+  .switch.red input:checked + i{background:rgba(242,180,87,.25);border-color:var(--amber)}
+  .switch.red input:checked + i::after{background:var(--amber)}
+  .disabledRow{opacity:.4;pointer-events:none}
+
+  /* schedule */
+  .times{display:flex;gap:10px;margin-top:6px}
+  .times div{flex:1}
+  .times label{font-size:.7rem;color:var(--mut);letter-spacing:.1em;display:block;margin-bottom:5px}
+  input[type=time]{width:100%;background:var(--surface2);border:1px solid var(--line);
+    color:var(--ink);border-radius:10px;padding:10px;font-family:"IBM Plex Mono",monospace;font-size:1rem;
+    color-scheme:dark}
+  .btn{width:100%;margin-top:12px;border:0;border-radius:12px;padding:12px;
+    font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;
+    background:var(--oxy);color:#04231C}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--mut);font-weight:500}
+  .btn:disabled{opacity:.5}
+
+  .meta{font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--mut);
+    display:flex;justify-content:space-between;margin-top:4px}
+
+  /* ---------- login ---------- */
+  #login{position:fixed;inset:0;background:var(--water);display:flex;align-items:center;
+    justify-content:center;z-index:10;padding:20px}
+  #login form{width:100%;max-width:340px}
+  #login h1{letter-spacing:.14em;margin-bottom:4px}
+  #login p{color:var(--mut);font-size:.85rem;margin-bottom:20px}
+  #login input{width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:12px;margin-bottom:10px;font-family:inherit;font-size:.95rem}
+  #loginErr{color:var(--red);font-size:.8rem;min-height:1.2em;margin-top:6px}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="login">
+  <form id="loginForm">
+    <h1>PRANVAYU</h1>
+    <p>प्राणवायु · pond aerator control — sign in to continue</p>
+    <input id="email" type="email" placeholder="Email" autocomplete="username" required>
+    <input id="pass" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button class="btn" type="submit">Sign in</button>
+    <div id="loginErr"></div>
+  </form>
+</div>
+
+<!-- ======================= APP ======================= -->
+<div class="app hidden" id="appRoot">
+  <header>
+    <div class="brand">
+      <h1>PRANVAYU</h1>
+      <small>प्राणवायु · Budhiganga pond aerator</small>
+    </div>
+    <span class="pill off" id="pill">● device offline</span>
+  </header>
+
+  <div id="alertBanner">
+    <span class="dot"></span>
+    <p>Theft alarm triggered — the unit was moved!
+      <time id="alertTime"></time>
+    </p>
+  </div>
+
+  <div class="hero">
+    <div class="ring" id="ring">
+      <span class="bubble"></span><span class="bubble"></span>
+      <span class="bubble"></span><span class="bubble"></span>
+      <span class="state" id="pumpState">STOPPED</span>
+      <span class="sub">AERATOR PUMP</span>
+    </div>
+    <div class="temp">
+      <b><span id="temp">--</span>°C</b>
+      <span>WATER TEMPERATURE</span>
+    </div>
+    <div id="pendingMsg"></div>
+  </div>
+
+  <!-- mode + manual -->
+  <div class="card">
+    <h2>CONTROL MODE</h2>
+    <div class="seg" id="modeSeg">
+      <button data-mode="manual" id="segManual">Manual</button>
+      <button data-mode="schedule" id="segSchedule">Schedule</button>
+    </div>
+    <div class="row" id="manualRow" style="margin-top:10px">
+      <label>Pump switch
+        <span class="hint">Turn the aerator on or off right now</span>
+      </label>
+      <span class="switch"><input type="checkbox" id="manualToggle"><i></i></span>
+    </div>
+  </div>
+
+  <!-- schedule -->
+  <div class="card">
+    <h2>NIGHT SCHEDULE <span style="letter-spacing:0">(Nepal time)</span></h2>
+    <div class="times">
+      <div><label>START</label><input type="time" id="startT" value="18:00"></div>
+      <div><label>END</label><input type="time" id="endT" value="22:00"></div>
+    </div>
+    <button class="btn" id="saveSched">Save schedule &amp; enable</button>
+    <div class="meta"><span id="clockWarn"></span><span id="rssi"></span></div>
+  </div>
+
+  <!-- security -->
+  <div class="card">
+    <div class="row">
+      <label>Theft protection
+        <span class="hint">Buzzer + instant alert if the unit is moved</span>
+      </label>
+      <span class="switch red"><input type="checkbox" id="armToggle"><i></i></span>
+    </div>
+  </div>
+
+  <button class="btn ghost" id="signOut">Sign out</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+        from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+import { getDatabase, ref, onValue, update }
+        from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+
+/* ============================================================
+   1. PASTE YOUR firebaseConfig HERE (Firebase console →
+      Project settings → Your apps → SDK setup and configuration)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_PROJECT.firebaseapp.com",
+  databaseURL: "https://PASTE_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "PASTE_PROJECT",
+  appId: "PASTE_APP_ID"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getDatabase(app);
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- login flow ---------------- */
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value);
+  } catch (err) {
+    $("loginErr").textContent = "Sign-in failed: " + (err.code || err.message);
+  }
+});
+$("signOut").onclick = () => signOut(auth);
+
+let listenersAttached = false;
+onAuthStateChanged(auth, (user) => {
+  $("login").classList.toggle("hidden", !!user);
+  $("appRoot").classList.toggle("hidden", !user);
+  if (user && !listenersAttached) { listenersAttached = true; attachListeners(); }
+});
+
+/* ---------------- live state ---------------- */
+let lastSeenMs = 0;
+let lastActualOn = false;    // last confirmed pump state from the device
+let pendingDesired = null;   // optimistic-UI confirmation tracking
+let pendingSince = 0;
+
+function attachListeners() {
+
+  /* ACTUAL device state -> hero, pill, temp */
+  onValue(ref(db, "aerator/status"), (snap) => {
+    const s = snap.val() ?? {};
+    $("temp").textContent = (typeof s.temperature === "number")
+        ? s.temperature.toFixed(1) : "--";
+    lastSeenMs = s.lastSeen ?? 0;
+    $("rssi").textContent = (typeof s.rssi === "number") ? WiFi ${s.rssi} dBm : "";
+    $("clockWarn").textContent = (s.clockSynced === false)
+        ? "⚠️ device clock not synced" : "";
+    lastActualOn = !!s.motorOn;
+    renderPump(lastActualOn);
+    refreshPill();
+  });
+
+  /* DESIRED settings -> controls (keeps every open tab in sync) */
+  onValue(ref(db, "aerator/control"), (snap) => {
+    const c = snap.val() ?? {};
+    renderMode(c.mode === "schedule" ? "schedule" : "manual");
+    $("manualToggle").checked = !!c.manualOn;
+    if (c.schedule?.start) $("startT").value = c.schedule.start;
+    if (c.schedule?.end)   $("endT").value   = c.schedule.end;
+    $("armToggle").checked = !!c.alarmArmed;
+  });
+
+  /* security alert */
+  onValue(ref(db, "aerator/security"), (snap) => {
+    const sec = snap.val() ?? {};
+    $("alertBanner").classList.toggle("show", !!sec.alert);
+    if (sec.lastAlertAt)
+      $("alertTime").textContent = "at " +
+        new Date(sec.lastAlertAt).toLocaleTimeString("en-GB",
+          { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit" }) + " NPT";
+  });
+}
+
+/* ---------------- rendering ---------------- */
+function renderPump(actualOn) {
+  const ring = $("ring");
+  // confirmation of an optimistic action
+  if (pendingDesired !== null && actualOn === pendingDesired) {
+    pendingDesired = null; $("pendingMsg").textContent = "";
+  }
+  ring.classList.toggle("running", actualOn);
+  ring.classList.toggle("pending", pendingDesired !== null);
+  $("pumpState").textContent =
+    pendingDesired !== null ? "WAITING…" : (actualOn ? "RUNNING" : "STOPPED");
+}
+
+function renderMode(mode) {
+  $("segManual").classList.toggle("active", mode === "manual");
+  $("segSchedule").classList.toggle("active", mode === "schedule");
+  $("segSchedule").classList.toggle("amber", mode === "schedule");
+  $("manualRow").classList.toggle("disabledRow", mode !== "manual");
+}
+
+function refreshPill() {
+  const online = lastSeenMs && (Date.now() - lastSeenMs < 45000);
+  $("pill").textContent = online ? "● device online" : "● device offline";
+  $("pill").className = "pill " + (online ? "on" : "off");
+}
+setInterval(refreshPill, 3000);
+
+/* pending timeout: warn if device never confirms */
+setInterval(() => {
+  if (pendingDesired !== null && Date.now() - pendingSince > 6000) {
+    $("pendingMsg").textContent = "Device not responding — check that it is online.";
+    pendingDesired = null;
+    renderPump(lastActualOn);
+  }
+}, 1000);
+
+/* ---------------- writes (website -> /aerator/control) ---------------- */
+const ctrl = ref(db, "aerator/control");
+
+$("manualToggle").addEventListener("change", (e) => {
+  pendingDesired = e.target.checked;
+  pendingSince = Date.now();
+  $("pendingMsg").textContent = "";
+  renderPump(lastActualOn); // ring keeps last confirmed state + shows WAITING…
+  update(ctrl, { mode: "manual", manualOn: e.target.checked });
+});
+
+document.querySelectorAll("#modeSeg button").forEach((b) =>
+  b.addEventListener("click", () => update(ctrl, { mode: b.dataset.mode })));
+
+$("saveSched").addEventListener("click", () => {
+  const start = $("startT").value, end = $("endT").value;
+  if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) {
+    alert("Please pick both start and end times."); return;
+  }
+  update(ctrl, { mode: "schedule", schedule: { start, end } });
+});
+
+$("armToggle").addEventListener("change", (e) =>
+  update(ctrl, { alarmArmed: e.target.checked }));
+</script>
+</body>
+</html>
