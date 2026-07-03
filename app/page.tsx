@@ -205,13 +205,6 @@ export default function Home() {
     }
   }
 
-  async function handleAlarmToggle(nextValue: boolean) {
-    setAlarmArmed(nextValue);
-    await update(ref(db, "aerator/control"), {
-      alarmArmed: nextValue,
-    });
-  }
-
   return (
     <main className="min-h-dvh overflow-x-hidden overflow-y-auto bg-[radial-gradient(circle_at_top,#f6fff8_0%,#eef9f1_34%,#ffffff_100%)] px-4 py-4 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-7xl flex-col gap-4">
@@ -356,32 +349,7 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="rounded-[28px] border border-emerald-100 bg-white px-4 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Alarm</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Theft protection from{" "}
-                    <span className="font-medium text-emerald-700">
-                      /aerator/control/alarmArmed
-                    </span>
-                    .
-                  </p>
-                </div>
-                <label className="relative inline-flex cursor-pointer items-center">
-                  <input
-                    type="checkbox"
-                    checked={alarmArmed}
-                    onChange={(event) =>
-                      void handleAlarmToggle(event.target.checked)
-                    }
-                    className="peer sr-only"
-                  />
-                  <span className="h-8 w-14 rounded-full border border-emerald-200 bg-emerald-50 transition peer-checked:bg-emerald-500" />
-                  <span className="absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-md transition peer-checked:translate-x-6" />
-                </label>
-              </div>
-            </div>
+            
           </aside>
         </section>
       </div>
